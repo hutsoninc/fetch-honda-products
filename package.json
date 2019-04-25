@@ -1,0 +1,26 @@
+{
+  "name": "fetch-honda-products",
+  "version": "1.0.0",
+  "description": "Fetches Honda product data.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Honda",
+    "Honda Power Equipment"
+  ],
+  "author": {
+    "name": "Austin Gordon",
+    "email": "gordon.austin2@gmail.com",
+    "url": "https://github.com/AustinLeeGordon"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "bluebird": "^3.5.4",
+    "bottleneck": "^2.18.0",
+    "cheerio": "^1.0.0-rc.3",
+    "fetch-retry": "^2.0.0"
+  }
+}
