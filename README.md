@@ -2,7 +2,7 @@
 
 [![Current npm package version](https://img.shields.io/npm/v/fetch-honda-products.svg)](https://www.npmjs.com/package/fetch-honda-products) 
 
-Fetches Honda product data.
+Fetches Honda Power Equipment product data.
 
 ## Installing
 
