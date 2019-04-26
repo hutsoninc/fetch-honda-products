@@ -1,4 +1,3 @@
-
 function filterProducts(productUrls, skus) {
     return productUrls.filter(url => {
         for (let i = 0; i < skus.length; i++) {

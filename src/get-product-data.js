@@ -1,28 +1,26 @@
 const cheerio = require('cheerio');
 const fetch = require('fetch-retry');
+const Bottleneck = require('bottleneck');
 const categories = require('./categories');
-const Bottleneck = require('bottleneck')
+const fetchProductSubcategories = require('./fetch-product-subcategories');
+const multiples = require('./multiples');
 
 const limiter = new Bottleneck({
     maxConcurrent: 2,
     minTime: 1000 / 9,
-})
-
-const multiples = [
-    'HSS724AT',
-    'HSS724ATD',
-    'HSS724AW',
-    'HSS724AWD',
-    'HSS928AW',
-    'HSS928AWD',
-    'HSS1332AT',
-    'HSS1332ATD',
-    'HSS928AT',
-    'HSS928ATD',
-];
+});
 
 async function getProductData(productUrls, options) {
     let { url, headers, Promise } = options;
+
+    url = url.replace(/\/$/, '');
+
+    let categoryKeys = Object.keys(categories);
+
+    // Get SKUs for each subcategory
+    let subcategories = await fetchProductSubcategories(options);
+    let subcategoryKeys = Object.keys(subcategories);
+
     let products = [];
     let promises = productUrls.map(productUrl => {
         return limiter.schedule(async () => {
@@ -54,7 +52,7 @@ async function getProductData(productUrls, options) {
             let sku = splitUrl.pop().toLowerCase();
             let category;
             splitUrl.forEach(part => {
-                if (categories.indexOf(part) !== -1) {
+                if (categoryKeys.indexOf(part) !== -1) {
                     category = part;
                 }
             });
@@ -103,6 +101,7 @@ async function getProductData(productUrls, options) {
 
             let out = {
                 title,
+                sku,
                 msrp: Number(msrp),
                 description,
                 overview,
@@ -129,6 +128,22 @@ async function getProductData(productUrls, options) {
             } else {
                 output.push(out);
             }
+
+            // Subcategory
+            output = output.map(obj => {
+                let subcategory = '';
+                for (let i = 0; i < subcategoryKeys.length; i++) {
+                    let skus = subcategories[subcategoryKeys[i]];
+                    if (skus.indexOf(obj.sku) !== -1) {
+                        subcategory = subcategoryKeys[i];
+                        break;
+                    }
+                }
+                return {
+                    ...obj,
+                    subcategory,
+                }
+            })
 
             products = products.concat(output);
         });

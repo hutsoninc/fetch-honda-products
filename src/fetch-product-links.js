@@ -1,11 +1,13 @@
 const fetch = require('fetch-retry');
 const cheerio = require('cheerio');
+const categories = require('./categories');
 
 async function fetchProductLinks(options) {
-    let { url, headers, categories, Promise } = options;
+    let { url, headers, Promise } = options;
+    let categoryKeys = Object.keys(categories);
     let promises = [];
-    for (let i = 0, len = categories.length; i < len; i++) {
-        promises.push(doFetch(`${url}${categories[i]}`, headers));
+    for (let i = 0, len = categoryKeys.length; i < len; i++) {
+        promises.push(doFetch(`${url}${categoryKeys[i]}`, headers));
     }
     let links = [];
     let linkArrs = await Promise.all(promises);

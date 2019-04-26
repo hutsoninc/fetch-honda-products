@@ -6,7 +6,6 @@ const categories = require('./categories');
 
 const defaultOptions = {
     url: 'https://powerequipment.honda.com/',
-    categories,
     headers: {},
     Promise
 };
