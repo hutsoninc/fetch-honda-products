@@ -2,7 +2,7 @@ const fetchProductLinks = require('./fetch-product-links');
 const filterProducts = require('./filter-products');
 const getProductData = require('./get-product-data');
 const Promise = require('bluebird');
-const categories = require('./categories');
+const removeDuplicates = require('./remove-duplicates');
 
 const defaultOptions = {
     url: 'https://powerequipment.honda.com/',
@@ -31,14 +31,21 @@ async function fetchProducts(skus, options = {}) {
 
     // Get all product URLs
     const productUrls = await fetchProductLinks(options);
-    
+
     // Filter products
     if (skus) {
         productUrls = filterProducts(productUrls, skus);
     }
 
     // Get data
-    const data = await getProductData(productUrls, options);
+    let data = await getProductData(productUrls, options);
+
+    console.log(data.length);
+    
+    // Remove any duplicate products that slipped through
+    data = removeDuplicates(data);
+    
+    console.log(data.length);
 
     return data;
 }

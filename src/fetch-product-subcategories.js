@@ -32,6 +32,10 @@ async function fetchProductSubcategories(options) {
 
                 const $ = cheerio.load(html);
 
+                // Remove footer links
+                $('.footer-links').remove();
+                $('#footer').remove();
+
                 let skus = [];
 
                 // Can't get it to work with more specific selectors...

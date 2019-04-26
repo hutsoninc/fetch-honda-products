@@ -18,8 +18,8 @@ async function getProductData(productUrls, options) {
     let categoryKeys = Object.keys(categories);
 
     // Get SKUs for each subcategory
-    let subcategories = await fetchProductSubcategories(options);
-    let subcategoryKeys = Object.keys(subcategories);
+    let productSubcategories = await fetchProductSubcategories(options);
+    let subcategoryKeys = Object.keys(productSubcategories);
 
     let products = [];
     let promises = productUrls.map(productUrl => {
@@ -131,17 +131,16 @@ async function getProductData(productUrls, options) {
 
             // Subcategory
             output = output.map(obj => {
-                let subcategory = '';
+                let subcategories = [];
                 for (let i = 0; i < subcategoryKeys.length; i++) {
-                    let skus = subcategories[subcategoryKeys[i]];
+                    let skus = productSubcategories[subcategoryKeys[i]];
                     if (skus.indexOf(obj.sku) !== -1) {
-                        subcategory = subcategoryKeys[i];
-                        break;
+                        subcategories.push(subcategoryKeys[i]);
                     }
                 }
                 return {
                     ...obj,
-                    subcategory,
+                    subcategories,
                 }
             })
 

@@ -25,7 +25,13 @@ async function doFetch(url, headers) {
         });
         html = await html.text();
         const $ = cheerio.load(html);
+
+        // Remove footer links
+        $('.footer-links').remove();
+        $('#footer').remove();
+
         let urls = [];
+        
         // Can't get it to work with more specific selectors...
         // Need to look into a better way of doing this
         $('a').each((i, e) => {
