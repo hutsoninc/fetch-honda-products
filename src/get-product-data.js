@@ -72,7 +72,7 @@ async function getProductData(productUrls, options) {
                 const gallery = cheerio.load(galleryHtml);
                 gallery('a').each((i, e) => {
                     let src = e.attribs.href;
-                    let img = `${url.slice(0, -1)}${src}`.trim();
+                    let img = `${url}${src}`.trim();
                     if (images.indexOf(img) === -1) {
                         images.push(img);
                     }
