@@ -30,7 +30,7 @@ async function fetchProducts(skus, options = {}) {
     }
 
     // Get all product URLs
-    const productUrls = await fetchProductLinks(options);
+    let productUrls = await fetchProductLinks(options);
 
     // Filter products
     if (skus) {
