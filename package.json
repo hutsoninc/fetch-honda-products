@@ -1,6 +1,6 @@
 {
   "name": "fetch-honda-products",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Fetches Honda Power Equipment product data.",
   "main": "src/index.js",
   "scripts": {
