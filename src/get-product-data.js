@@ -81,6 +81,8 @@ async function getProductData(productUrls, options) {
                 // if(error) console.log(productUrl)
             }
 
+            images = images.filter(i => /(.(jpg|png|gif))/i.test(i));
+
             // Specs
             let specs = [];
             $('.additional-specs tbody tr').map((i, el) => {
