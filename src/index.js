@@ -39,14 +39,10 @@ async function fetchProducts(skus, options = {}) {
 
     // Get data
     let data = await getProductData(productUrls, options);
-
-    console.log(data.length);
     
     // Remove any duplicate products that slipped through
     data = removeDuplicates(data);
     
-    console.log(data.length);
-
     return data;
 }
 

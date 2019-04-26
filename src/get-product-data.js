@@ -4,6 +4,7 @@ const Bottleneck = require('bottleneck');
 const categories = require('./categories');
 const fetchProductSubcategories = require('./fetch-product-subcategories');
 const multiples = require('./multiples');
+const fs = require('fs');
 
 const limiter = new Bottleneck({
     maxConcurrent: 2,
@@ -60,14 +61,25 @@ async function getProductData(productUrls, options) {
             // MSRP
             let msrp = $('.msrp h5').text();
             msrp = msrp.replace(/[^\d.\/]/g, '');
-            // msrp = Number(msrp);
 
             // Images
             let images = [];
-            $('.image a.image').each((i, e) => {
-                let src = e.attribs.href;
-                images.push(url.slice(0, -1) + src);
-            });
+            try {
+                let galleryHtml = $('.gallery').html();
+                if (!galleryHtml) {
+                    galleryHtml = $('#Gallery').html();
+                }
+                const gallery = cheerio.load(galleryHtml);
+                gallery('a').each((i, e) => {
+                    let src = e.attribs.href;
+                    let img = `${url.slice(0, -1)}${src}`.trim();
+                    if (images.indexOf(img) === -1) {
+                        images.push(img);
+                    }
+                });
+            } catch (error) {
+                // if(error) console.log(productUrl)
+            }
 
             // Specs
             let specs = [];
