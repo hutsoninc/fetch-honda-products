@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "keywords": [
     "Honda",
@@ -25,6 +25,8 @@
     "bluebird": "^3.5.4",
     "bottleneck": "^2.18.0",
     "cheerio": "^1.0.0-rc.3",
-    "fetch-retry": "^2.0.0"
+    "fetch-retry": "^2.0.0",
+    "jest": "^24.8.0",
+    "jsdom": "^15.0.0"
   }
 }

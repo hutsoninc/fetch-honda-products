@@ -1,10 +1,9 @@
-const cheerio = require('cheerio');
+const { JSDOM } = require('jsdom');
 const fetch = require('fetch-retry');
 const Bottleneck = require('bottleneck');
 const categories = require('./categories');
 const fetchProductSubcategories = require('./fetch-product-subcategories');
 const multiples = require('./multiples');
-const fs = require('fs');
 
 const limiter = new Bottleneck({
     maxConcurrent: 2,
@@ -32,21 +31,26 @@ async function getProductData(productUrls, options) {
             });
             html = await html.text();
 
-            const $ = cheerio.load(html);
+            let dom = new JSDOM(html);
+            let window = dom.window;
+            let { document } = window;
 
             // Title
-            let title = $('.summary h1').text() || $('#model-name h1').text();
-            title = title.trim();
+            let title = document.querySelector('.summary h1') || document.querySelector('#model-name h1');
+            title = title.textContent.trim();
 
             // Meta Description
-            let description = $('meta[name=description]')[0].attribs.content;
+            let description = document.querySelector('meta[name=description]').getAttribute('content');
 
             // Key Features
             let overview = []
-            $('.disc li').each((i, e) => {
-                let text = cheerio.load(e).text().trim();
-                overview.push(text);
-            });
+            let featureItems = document.querySelectorAll('.disc li');
+            if (featureItems) {
+                featureItems.forEach(e => {
+                    let text = e.textContent.trim();
+                    overview.push(text);
+                });
+            }
 
             // SKU and Category
             let splitUrl = productUrl.split('/').filter(s => s);
@@ -59,54 +63,51 @@ async function getProductData(productUrls, options) {
             });
 
             // MSRP
-            let msrp = $('.msrp h5').text();
+            let msrp = document.querySelector('.msrp h5').textContent;
             msrp = msrp.replace(/[^\d.\/]/g, '');
 
             // Images
             let images = [];
-            try {
-                let galleryHtml = $('.gallery').html();
-                if (!galleryHtml) {
-                    galleryHtml = $('#Gallery').html();
-                }
-                const gallery = cheerio.load(galleryHtml);
-                gallery('a').each((i, e) => {
-                    let src = e.attribs.href;
+            let gallery = document.querySelector('.gallery') || document.querySelector('#Gallery');
+            if (gallery) {
+                gallery.querySelectorAll('a').forEach(e => {
+                    let src = e.getAttribute('href');
                     let img = `${url}${src}`.trim();
                     if (images.indexOf(img) === -1) {
                         images.push(img);
                     }
                 });
-            } catch (error) {
-                // if(error) console.log(productUrl)
-            }
 
-            images = images.filter(i => /(.(jpg|jpeg|png|gif))/i.test(i));
+                images = images.filter(i => /(.(jpg|jpeg|png|gif))/i.test(i));
+            }
 
             // Specs
             let specs = [];
-            $('.additional-specs tbody tr').map((i, el) => {
-                el = cheerio.load(el);
-                let spec = {};
-                el('td').map((i, e) => {
-                    let text = cheerio.load(e).text().trim();
-                    if (i === 0) {
-                        spec.property = text;
-                    } else {
-                        spec.data = text;
-                    }
+            let specRows = document.querySelectorAll('.additional-specs tbody tr');
+            if (specRows) {
+                specRows.forEach(e => {
+                    let spec = {};
+                    let tds = e.querySelectorAll('td');
+                    tds.forEach((e, i) => {
+                        let text = e.textContent.trim();
+                        if (i === 0) {
+                            spec.property = text;
+                        } else {
+                            spec.data = text;
+                        }
+                    });
+                    specs.push(spec);
                 });
-                specs.push(spec);
-            });
+            }
 
             specs = specs.filter(obj => obj.data !== '');
 
             // Check if page contains two products
-            let found = false;
+            let multipleFound = false;
             for (let i = 0; i < multiples.length; i++) {
                 let match = new RegExp(multiples[i], 'i').exec(title);
                 if (match) {
-                    found = true;
+                    multipleFound = true;
                     break;
                 }
             }
@@ -125,7 +126,7 @@ async function getProductData(productUrls, options) {
                 url: productUrl,
             }
 
-            if (found) {
+            if (multipleFound) {
                 let titles = title.split('/').map(t => t.trim());
                 let prices = msrp.split('/');
                 let skus = sku.split('-');

@@ -1,5 +1,5 @@
 const fetch = require('fetch-retry');
-const cheerio = require('cheerio');
+const { JSDOM } = require('jsdom');
 const categories = require('./categories');
 
 async function fetchProductLinks(options) {
@@ -24,18 +24,15 @@ async function doFetch(url, headers) {
             headers
         });
         html = await html.text();
-        const $ = cheerio.load(html);
 
-        // Remove footer links
-        $('.footer-links').remove();
-        $('#footer').remove();
+        let dom = new JSDOM(html);
+        let window = dom.window;
+        let { document } = window;
 
         let urls = [];
-        
-        // Can't get it to work with more specific selectors...
-        // Need to look into a better way of doing this
-        $('a').each((i, e) => {
-            let url = e.attribs.href.trim();
+
+        document.querySelectorAll('#main a').forEach(e => {
+            let url = e.href.trim();
             // Check if product url
             if (url.indexOf('models') >= 0) {
                 if (!/\/$/.test(url)) {
