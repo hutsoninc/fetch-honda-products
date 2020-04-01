@@ -7,11 +7,11 @@ const removeDuplicates = require('./remove-duplicates');
 const defaultOptions = {
     url: 'https://powerequipment.honda.com/',
     headers: {},
-    Promise
+    Promise,
 };
 
 /**
- * 
+ *
  * @param {Array} skus Product SKUs to keep
  * @param {Object} options Options
  */
@@ -25,7 +25,7 @@ async function fetchProducts(skus, options = {}) {
     }
 
     // Append / to URL
-    if (options.url.charAt(options.url.length - 1) !== '/') {
+    if (!/\/$/.test(options.url)) {
         options.url = options.url + '/';
     }
 
@@ -39,10 +39,10 @@ async function fetchProducts(skus, options = {}) {
 
     // Get data
     let data = await getProductData(productUrls, options);
-    
+
     // Remove any duplicate products that slipped through
     data = removeDuplicates(data);
-    
+
     return data;
 }
 

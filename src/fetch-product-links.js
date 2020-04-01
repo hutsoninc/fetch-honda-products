@@ -3,16 +3,18 @@ const { JSDOM } = require('jsdom');
 const categories = require('./categories');
 
 async function fetchProductLinks(options) {
-    let { url, headers, Promise } = options;
-    let categoryKeys = Object.keys(categories);
-    let promises = [];
-    for (let i = 0, len = categoryKeys.length; i < len; i++) {
-        promises.push(doFetch(`${url}${categoryKeys[i]}`, headers));
+    const { url, headers, Promise } = options;
+
+    const promises = [];
+    for (let i = 0, len = categories.length; i < len; i++) {
+        promises.push(doFetch(`${url}${categories[i]}`, headers));
     }
-    let links = [];
-    let linkArrs = await Promise.all(promises);
+
+    const linkArrs = await Promise.all(promises);
+
+    const links = [];
     linkArrs.forEach(arr => {
-        links = links.concat(arr);
+        links.push(...arr)
     })
     return links;
 }
@@ -31,7 +33,7 @@ async function doFetch(url, headers) {
 
         let urls = [];
 
-        document.querySelectorAll('#main a').forEach(e => {
+        document.querySelectorAll('#model-list a').forEach(e => {
             let url = e.href.trim();
             // Check if product url
             if (url.indexOf('models') >= 0) {

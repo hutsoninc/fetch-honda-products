@@ -2,8 +2,8 @@ const { JSDOM } = require('jsdom');
 const fetch = require('fetch-retry');
 const Bottleneck = require('bottleneck');
 const categories = require('./categories');
-const fetchProductSubcategories = require('./fetch-product-subcategories');
 const multiples = require('./multiples');
+const selectorChain = require('./selector-chain');
 
 const limiter = new Bottleneck({
     maxConcurrent: 2,
@@ -11,96 +11,239 @@ const limiter = new Bottleneck({
 });
 
 async function getProductData(productUrls, options) {
-    let { url, headers, Promise } = options;
+    const { url, headers, Promise } = options;
 
-    url = url.replace(/\/$/, '');
+    const baseUrl = url.replace(/\/$/, '');
 
-    let categoryKeys = Object.keys(categories);
-
-    // Get SKUs for each subcategory
-    let productSubcategories = await fetchProductSubcategories(options);
-    let subcategoryKeys = Object.keys(productSubcategories);
-
-    let products = [];
-    let promises = productUrls.map(productUrl => {
+    const products = [];
+    const promises = productUrls.map(productUrl => {
         return limiter.schedule(async () => {
-            productUrl = `${url}${productUrl}`;
-            let html = await fetch(productUrl, {
+            productUrl = `${baseUrl}${productUrl}`;
+            const html = await fetch(productUrl, {
                 method: 'GET',
                 headers,
-            });
-            html = await html.text();
+            }).then(html => html.text());
 
-            let dom = new JSDOM(html);
-            let window = dom.window;
-            let { document } = window;
+            const dom = new JSDOM(html);
+            const window = dom.window;
+            const { document } = window;
 
             // Title
-            let title = document.querySelector('.summary h1') || document.querySelector('#model-name h1');
-            title = title.textContent.trim();
+            let title = selectorChain(document, [
+                '#model-detail .row',
+                0,
+                'h3',
+                0,
+            ]);
+
+            if (title) {
+                title = title.textContent.trim();
+            } else {
+                console.error(`No title found ${productUrl}`);
+            }
 
             // Meta Description
-            let description = document.querySelector('meta[name=description]').getAttribute('content');
+            let description = document.querySelector('meta[name=description]');
+            if (description) {
+                description = description.getAttribute('content');
+            }
+            if (!description) {
+                console.error(`No description found ${productUrl}`);
+            }
 
             // Key Features
-            let overview = []
-            let featureItems = document.querySelectorAll('.disc li');
+            const overview = [];
+            const featureItems = selectorChain(document, [
+                '#model-detail .row',
+                0,
+                '.col-sm-6 li',
+            ]);
             if (featureItems) {
                 featureItems.forEach(e => {
-                    let text = e.textContent.trim();
+                    const text = e.textContent.replace(/\?/g, '').trim();
                     overview.push(text);
                 });
             }
+            if (overview.length === 0) {
+                console.error(`No overview found ${productUrl}`);
+            }
 
             // SKU and Category
-            let splitUrl = productUrl.split('/').filter(s => s);
-            let sku = splitUrl.pop().toLowerCase();
-            let category;
-            splitUrl.forEach(part => {
-                if (categoryKeys.indexOf(part) !== -1) {
-                    category = part;
+            const splitUrl = productUrl.split('/').filter(s => s);
+            const sku = splitUrl.pop().toLowerCase();
+            const category = splitUrl.find(part => {
+                if (categories.indexOf(part) !== -1) {
+                    return part;
                 }
             });
 
             // MSRP
-            let msrp = document.querySelector('.msrp h5').textContent;
-            msrp = msrp.replace(/[^\d.\/]/g, '');
+            let msrp = selectorChain(document, [
+                '#model-detail .row',
+                0,
+                '.col-sm-6 h2',
+                0,
+            ]);
+            if (msrp) {
+                const msrpText = msrp.nextElementSibling.textContent;
+                msrp = msrpText.replace(/[^\d.\/]/g, '');
+            }
+            if (!msrp) {
+                console.error(`No msrp found ${productUrl}`);
+            }
 
             // Images
-            let images = [];
-            let gallery = document.querySelector('.gallery') || document.querySelector('#Gallery');
-            if (gallery) {
-                gallery.querySelectorAll('a').forEach(e => {
-                    let src = e.getAttribute('href');
-                    let img = `${url}${src}`.trim();
-                    if (images.indexOf(img) === -1) {
-                        images.push(img);
+            const images = [];
+            const gallery = document.querySelectorAll('#flexgallery img');
+            if (typeof gallery === 'object' && gallery.length !== 0) {
+                gallery.forEach(e => {
+                    let src = e.getAttribute('src');
+                    if (src.charAt(0) === '/') {
+                        src = `${baseUrl}${src}`;
+                    }
+
+                    src = src.trim();
+
+                    if (
+                        images.indexOf(src) === -1 &&
+                        /(.(jpg|jpeg|png|gif))/i.test(src)
+                    ) {
+                        images.push(src);
                     }
                 });
-
-                images = images.filter(i => /(.(jpg|jpeg|png|gif))/i.test(i));
+            }
+            if (images.length === 0) {
+                console.error(`No images found ${productUrl}`);
             }
 
             // Specs
-            let specs = [];
-            let specRows = document.querySelectorAll('.additional-specs tbody tr');
-            if (specRows) {
-                specRows.forEach(e => {
-                    let spec = {};
-                    let tds = e.querySelectorAll('td');
-                    tds.forEach((e, i) => {
-                        let text = e.textContent.trim();
-                        if (i === 0) {
-                            spec.property = text;
-                        } else {
-                            spec.data = text;
-                        }
-                    });
-                    specs.push(spec);
+            const specs = [];
+            const specTitleEls = document.querySelectorAll('#Specs .spec_left');
+            const specTitles = [];
+            if (typeof specTitleEls === 'object' && specTitleEls.length !== 0) {
+                specTitleEls.forEach(el => {
+                    const text = el.textContent;
+                    if (text) {
+                        specTitles.push(text.trim());
+                    }
                 });
             }
+            const specDetailEls = document.querySelectorAll(
+                '#Specs .spec_right'
+            );
+            const specDetails = [];
+            if (
+                typeof specDetailEls === 'object' &&
+                specDetailEls.length !== 0
+            ) {
+                specDetailEls.forEach(el => {
+                    const text = el.textContent;
+                    if (text) {
+                        specDetails.push(text.trim());
+                    }
+                });
+            }
+            const specTitlesLen = specTitles.length;
+            const specDetailsLen = specDetails.length;
+            if (specTitlesLen !== specDetailsLen) {
+                console.error(`Spec lengths don't match on ${productUrl}`);
+            }
+            if (specTitlesLen !== 0 && specDetailsLen !== 0) {
+                for (let i = 0; i < specTitlesLen; i++) {
+                    specs.push({
+                        property: specTitles[i],
+                        data: specDetails[i],
+                    });
+                }
+            }
 
-            specs = specs.filter(obj => obj.data !== '');
+            const specsFiltered = specs.filter(obj => obj.data !== '');
+
+            if (specsFiltered.length === 0) {
+                console.error(`No specs found ${productUrl}`);
+            }
+
+            // Features
+            const features = [];
+            const featureTitleEls = document.querySelectorAll(
+                '#Features .col-lg-4 span'
+            );
+            const featureTitles = [];
+            if (
+                typeof featureTitleEls === 'object' &&
+                featureTitleEls.length !== 0
+            ) {
+                featureTitleEls.forEach(el => {
+                    const text = el.textContent;
+                    if (text) {
+                        featureTitles.push(text.replace(/\?/g, '').trim());
+                    }
+                });
+            }
+            const featureDetailEls = document.querySelectorAll(
+                '#Features .col-lg-4 p'
+            );
+            const featureDetails = [];
+            if (
+                typeof featureDetailEls === 'object' &&
+                featureDetailEls.length !== 0
+            ) {
+                featureDetailEls.forEach(el => {
+                    const text = el.textContent;
+                    if (text) {
+                        featureDetails.push(text.trim());
+                    }
+                });
+            }
+            const featureImageEls = document.querySelectorAll(
+                '#Features .col-lg-2'
+            );
+
+            const featureImages = [];
+            if (
+                typeof featureImageEls === 'object' &&
+                featureImageEls.length !== 0
+            ) {
+                featureImageEls.forEach(el => {
+                    if (el) {
+                        const featureImage = el.querySelector('img');
+                        const featureImageSrc = featureImage
+                            ? featureImage.getAttribute('src').trim()
+                            : null;
+                        featureImages.push(featureImageSrc);
+                    }
+                });
+            }
+            const featureTitlesLen = featureTitles.length;
+            const featureDetailsLen = featureDetails.length;
+            const featureImagesLen = featureImages.length;
+            if (
+                featureTitlesLen !== featureDetailsLen ||
+                featureTitlesLen !== featureImagesLen ||
+                featureDetailsLen !== featureImagesLen
+            ) {
+                console.error(`Feature lengths don't match on ${productUrl}`);
+            }
+            if (
+                featureTitlesLen !== 0 &&
+                featureDetailsLen !== 0 &&
+                featureImagesLen !== 0
+            ) {
+                for (let i = 0; i < featureTitlesLen; i++) {
+                    const feature = {
+                        title: featureTitles[i],
+                        text: featureDetails[i],
+                    };
+                    if (featureImages[i]) {
+                        feature.image = featureImages[i];
+                    }
+                    features.push(feature);
+                }
+            }
+
+            if (features.length === 0) {
+                console.error(`No features found ${productUrl}`);
+            }
 
             // Check if page contains two products
             let multipleFound = false;
@@ -112,54 +255,44 @@ async function getProductData(productUrls, options) {
                 }
             }
 
-            let output = [];
+            const output = [];
 
-            let out = {
+            const out = {
                 title,
                 sku,
                 msrp: Number(msrp),
                 description,
                 overview,
-                specs,
+                specs: specsFiltered,
+                features,
                 images,
                 category,
                 url: productUrl,
-            }
+            };
 
             if (multipleFound) {
-                let titles = title.split('/').map(t => t.trim());
-                let prices = msrp.split('/');
-                let skus = sku.split('-');
-                output.push(Object.assign(out, {
-                    title: titles[0],
-                    msrp: Number(prices[0]),
-                    sku: skus[0],
-                }));
-                output.push(Object.assign(out, {
-                    title: titles[1],
-                    msrp: Number(prices[1]),
-                    sku: skus[1],
-                }));
+                const titles = title.split('/').map(t => t.trim());
+                const prices = msrp.split('/');
+                const skus = sku.split('-');
+                output.push(
+                    Object.assign(out, {
+                        title: titles[0],
+                        msrp: Number(prices[0]),
+                        sku: skus[0],
+                    })
+                );
+                output.push(
+                    Object.assign(out, {
+                        title: titles[1],
+                        msrp: Number(prices[1]),
+                        sku: skus[1],
+                    })
+                );
             } else {
                 output.push(out);
             }
 
-            // Subcategory
-            output = output.map(obj => {
-                let subcategories = [];
-                for (let i = 0; i < subcategoryKeys.length; i++) {
-                    let skus = productSubcategories[subcategoryKeys[i]];
-                    if (skus.indexOf(obj.sku) !== -1) {
-                        subcategories.push(subcategoryKeys[i]);
-                    }
-                }
-                return {
-                    ...obj,
-                    subcategories,
-                }
-            })
-
-            products = products.concat(output);
+            products.push(...output);
         });
     });
 
